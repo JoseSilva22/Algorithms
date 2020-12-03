@@ -1,2 +1,2 @@
 # Algorithms
-Some implementations of algorithms 
+A bunch of simple algorithms implemented in Python 3.
