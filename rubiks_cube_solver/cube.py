@@ -1,59 +1,4 @@
-'''
-def rotate_face_clockwise(cube, face):
-    # Rotate a single face clockwise (90 degrees)
-    rotated_face = [cube[face][6], cube[face][3], cube[face][0], cube[face][7], cube[face][4], cube[face][1], cube[face][8], cube[face][5], cube[face][2]]
-    new_cube = [list(row) for row in cube]  # Create a copy of the cube
-    for i in range(9):
-        new_cube[face][i] = rotated_face[i]
-    return new_cube
-
-def rotate_face_counterclockwise(cube, face):
-    # Rotate a single face counterclockwise (270 degrees)
-    return rotate_face_clockwise(rotate_face_clockwise(rotate_face_clockwise(cube, face), face), face)
-
-def rotate_cube_clockwise(cube, layer):
-    # Rotate the entire cube clockwise (90 degrees) with respect to the given layer
-    new_cube = [list(row) for row in cube]  # Create a copy of the cube
-    for i in range(3):
-        new_cube[layer][i*3:i*3+3], new_cube[layer+1][i*3:i*3+3], new_cube[layer+2][i*3:i*3+3] = [cube[layer+2][i*3], cube[layer+1][i*3], cube[layer][i*3]], [cube[layer+2][i*3+1], cube[layer+1][i*3+1], cube[layer][i*3+1]], [cube[layer+2][i*3+2], cube[layer+1][i*3+2], cube[layer][i*3+2]]
-    return new_cube
-
-def rotate_cube_counterclockwise(cube, layer):
-    # Rotate the entire cube counterclockwise (270 degrees) with respect to the given layer
-    return rotate_cube_clockwise(rotate_cube_clockwise(rotate_cube_clockwise(cube, layer), layer), layer)
-
-# Define the mapping of faces to their positions in the list of lists
-face_mapping = {
-    1: 0,  # Top
-    2: 1,  # Left
-    3: 2,  # Front
-    4: 3,  # Right
-    5: 4,  # Back
-    6: 5   # Down
-}
-
-# Perform some example operations:
-cube = [[1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6],
-        [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6],
-        [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6]]
-
-# Rotate the top face clockwise
-cube = rotate_face_clockwise(cube, face_mapping[1])
-
-# Rotate the left face counterclockwise
-cube = rotate_face_counterclockwise(cube, face_mapping[2])
-
-# Rotate the entire cube (layers 0 and 1) clockwise
-cube = rotate_cube_clockwise(cube, 0)
-
-# Rotate the entire cube (layers 3 and 4) counterclockwise
-cube = rotate_cube_counterclockwise(cube, 3)
-
-# Print the resulting cube
-for row in cube:
-    print(row)
-'''
-
+#https://carlosgrande.me/rubiks-cube-model/
 
 import random
 
@@ -69,13 +14,20 @@ face_mapping = {
     "FRONT": (1, 1), 
     "BACK": (-1, 1), 
     "TOP": (1, 2), 
-    "BOTTOM": (-1, 2)   
+    "BOTTOM": (-1, 2),
+    "X_PLANE": (0, 1),
+    "Y_PLANE": (0, 0),
+    "Z_PLANE": (0, 2),
 }
 
 class Square:
-    def __init__(self, normal):
+    def __init__(self, normal, color):
         self.orig_normal = normal
         self.curr_normal = normal
+        self.color = color
+    
+    def __str__(self):
+        return f"Color: {self.color}, Normal: {self.curr_normal}"
         
     def check(self):
         return self.orig_normal == self.curr_normal
@@ -127,6 +79,8 @@ class Cube:
         pass
         
     def evaluate(self):
+        # assumes that faces end at the initial positions
+        # doesnt account for cube rotations
         score = 0
         for block in self.blocks:
             score += block.check()
@@ -153,11 +107,11 @@ if __name__ == '__main__':
                 block = Block((i,j,k))
                 
                 if i != 0:
-                    block.add_square(Square((i, 0, 0)))
+                    block.add_square(Square((i, 0, 0), 'RED')) # fix color calc
                 if j != 0:
-                    block.add_square(Square((0, j, 0)))
+                    block.add_square(Square((0, j, 0), 'RED')) # fix color calc
                 if k != 0:
-                    block.add_square(Square((0, 0, k)))
+                    block.add_square(Square((0, 0, k), 'RED')) # fix color calc
 
                 cube.add_block(block)
     
@@ -168,15 +122,16 @@ if __name__ == '__main__':
         print(f"\nBlock squares: {len(block.squares)}")
         print(f"Block pos: {block.pos}")
         for square in block.squares:
-            print(square.curr_normal)
+            print(square)
     
-    le_face = cube.get_face(face_mapping["LEFT"])
+    face_name = "X_PLANE"
+    le_face = cube.get_face(face_mapping[face_name])
     
-    print(f"# blocks in face: {len(le_face)}")
+    print(f"\n# blocks in face {face_name}: {len(le_face)}")
     for block in le_face:
-        print(block.pos)
+        print(f"Block pos: {block.pos}")
         for square in block.squares:
-            print(square.curr_normal)
+            print(square)
         
     print("Score for solved Cube should be 54")
     print(f"Score: {cube.evaluate()}")
