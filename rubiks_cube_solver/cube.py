@@ -1,5 +1,21 @@
 #https://carlosgrande.me/rubiks-cube-model/
+#https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.transform.Rotation.html
 
+'''
+       Z
+       ^
+       |
+       |
+       |-------> Y
+      /
+     /
+    X
+'''
+# r = R.from_quat([0, 0, np.sin(np.pi/4), np.cos(np.pi/4)]) # Eixo-Z rotation
+# r = R.from_quat([0, 0, -np.sin(np.pi/4), -np.cos(np.pi/4)]) # Eixo-Z rotation
+
+
+from abc import ABC, abstractmethod
 import random
 
 '''
@@ -8,8 +24,9 @@ A Block may contain up to 3 Squares
 A Face contains 9 Blocks that should make up to 21 Sqaures
 '''
 
+# review this
 face_mapping = {
-    "LEFT": (-1, 0), 
+    "LEFT": (-1, 0), #(value, index of pos tuple)
     "RIGHT": (1, 0), 
     "FRONT": (1, 1), 
     "BACK": (-1, 1), 
@@ -20,6 +37,22 @@ face_mapping = {
     "Z_PLANE": (0, 2),
 }
 
+class Strategy(ABC):
+    @abstractmethod
+    def do_algorithm(self, cube):
+        pass
+
+
+class GeneticAlgorithmStrategy(Strategy):
+    def do_algorithm(self, cube):
+        pass
+
+
+class SimulatedAnnealingStrategy(Strategy):
+    def do_algorithm(self, cube):
+        pass
+        
+        
 class Square:
     def __init__(self, normal, color):
         self.orig_normal = normal
@@ -49,8 +82,9 @@ class Block:
         
         
 class Cube:
-    def __init__(self):
+    def __init__(self, strategy):
         self.blocks = []
+        self.solver = strategy
     
     def add_block(self, block):
         self.blocks.append(block)    
@@ -75,8 +109,8 @@ class Cube:
             face = self.get_face(face_name)
             self.rotate_face(face, random.randint(0,1)) # clockwise or counterclockwise
         
-    def solve(self, strategy):
-        pass
+    def solve(self):
+        return self.solver.do_algorithm(self)
         
     def evaluate(self):
         # assumes that faces end at the initial positions
@@ -89,7 +123,11 @@ class Cube:
         
         
 if __name__ == '__main__':
-    cube = Cube()
+    ga = GeneticAlgorithmStrategy()
+    sa = SimulatedAnnealingStrategy()
+    cube = Cube(ga)
+    
+    # ================== PREPARE CUBE =================
     
     for i in range(-1,2):
         for j in range(-1,2):
