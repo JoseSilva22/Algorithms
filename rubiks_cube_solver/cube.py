@@ -24,16 +24,16 @@ A Block may contain up to 3 Squares
 A Face contains 9 Blocks that should make up to 21 Sqaures
 '''
 
-# review this
+
 face_mapping = {
-    "LEFT": (-1, 0), #(value, index of pos tuple)
-    "RIGHT": (1, 0), 
-    "FRONT": (1, 1), 
-    "BACK": (-1, 1), 
+    "BACK": (-1, 0), #(value, index of pos tuple)
+    "FRONT": (1, 0), 
+    "RIGHT": (1, 1), 
+    "LEFT": (-1, 1), 
     "TOP": (1, 2), 
     "BOTTOM": (-1, 2),
-    "X_PLANE": (0, 1),
-    "Y_PLANE": (0, 0),
+    "X_PLANE": (0, 0),
+    "Y_PLANE": (0, 1),
     "Z_PLANE": (0, 2),
 }
 
