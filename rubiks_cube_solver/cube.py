@@ -1,5 +1,6 @@
 #https://carlosgrande.me/rubiks-cube-model/
 #https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.transform.Rotation.html
+#https://matplotlib.org/stable/api/_as_gen/matplotlib.patches.Rectangle.html
 
 '''
        Z
@@ -8,14 +9,16 @@
        |
        |-------> Y
       /
-     /
+    /
     X
 '''
-# r = R.from_quat([0, 0, np.sin(np.pi/4), np.cos(np.pi/4)]) # Eixo-Z rotation
-# r = R.from_quat([0, 0, -np.sin(np.pi/4), -np.cos(np.pi/4)]) # Eixo-Z rotation
+
 
 from scipy.spatial.transform import Rotation as R
+import mpl_toolkits.mplot3d.art3d as art3d
+from matplotlib.patches import Rectangle
 from abc import ABC, abstractmethod
+import matplotlib.pyplot as plt
 import numpy as np
 import random
 
@@ -25,6 +28,17 @@ A Block may contain up to 3 Squares
 A Face contains 9 Blocks that should make up to 21 Sqaures
 '''
 
+colors_mapping = [
+    'green','red','yellow','green','red','green',
+    'red','white','green','yellow','green','green',
+    'white','green','orange','yellow','green','orange',
+    'green','orange','white','red','yellow','red',
+    'red','white','yellow','white','orange','yellow',
+    'orange','orange','white','blue','red','yellow',
+    'blue','red','blue','red','white','blue',
+    'yellow','blue','blue','white','blue','orange',
+    'yellow','blue','orange','blue','orange','white',
+]
 
 face_mapping = {
     "BACK":    (-1, 0), #(value, index of pos tuple)
@@ -47,6 +61,7 @@ axis_rotations = {
     "X1": R.from_quat([ np.sin(np.pi/4),                0,                0,  np.cos(np.pi/4)]), # X counterclockwise
 }
 
+
 class Strategy(ABC):
     @abstractmethod
     def do_algorithm(self, cube):
@@ -61,6 +76,7 @@ class GeneticAlgorithmStrategy(Strategy):
 class SimulatedAnnealingStrategy(Strategy):
     def do_algorithm(self, cube):
         pass
+        
         
         
 class Square:
@@ -90,7 +106,7 @@ class Block:
             score += square.check()
 
         return score
-        
+    
         
 class Cube:
     def __init__(self, strategy):
@@ -119,9 +135,6 @@ class Cube:
         
         r = axis_rotations[f"{axis}{direction}"]
         face = self.get_face(face_name)
-        #print(face_name)
-        #print(axis)
-        #print(r.as_euler('zyx', degrees=True))
         
         for block in face:
             # rotate block
@@ -151,6 +164,7 @@ class Cube:
         return score
         
         
+        
 if __name__ == '__main__':
     ga = GeneticAlgorithmStrategy()
     sa = SimulatedAnnealingStrategy()
@@ -158,6 +172,7 @@ if __name__ == '__main__':
     
     # ================== PREPARE CUBE =================
     
+    count = 0
     for i in range(-1,2):
         for j in range(-1,2):
             for k in range(-1,2):
@@ -174,17 +189,21 @@ if __name__ == '__main__':
                 block = Block([i,j,k])
                 
                 if i != 0:
-                    block.add_square(Square([i, 0, 0], 'RED')) # fix color calc
+                    block.add_square(Square([i, 0, 0], colors_mapping[count])) 
+                    count += 1
                 if j != 0:
-                    block.add_square(Square([0, j, 0], 'RED')) # fix color calc
+                    block.add_square(Square([0, j, 0], colors_mapping[count])) 
+                    count += 1
                 if k != 0:
-                    block.add_square(Square([0, 0, k], 'RED')) # fix color calc
+                    block.add_square(Square([0, 0, k], colors_mapping[count])) 
+                    count += 1
 
                 cube.add_block(block)
+                
     
     
     # =================== DEBUGGING ===================
-    
+    '''
     for block in cube.blocks:
         print(f"\nBlock squares: {len(block.squares)}")
         print(f"Block pos: {block.pos}")
@@ -202,8 +221,38 @@ if __name__ == '__main__':
         
     print("Score for solved Cube should be 54")
     print(f"Score: {cube.evaluate()}")
-    
+    '''
     # ================ SHUFFLE + SOLVE ================
     
-    cube.shuffle(1)
+    cube.shuffle()
     print(f"Score: {cube.evaluate()}")
+    
+    
+    fig = plt.figure()  
+    ax = fig.add_subplot(projection='3d')
+    
+    for block in cube.blocks:
+        for square in block.squares:
+            zdir = "x"
+            offset = block.pos[0]
+            rect_pos = (block.pos[1], block.pos[2])
+            if abs(square.curr_normal[1]) == 1:
+                zdir = "y"
+                rect_pos = (block.pos[0], block.pos[2])
+                offset = block.pos[1]
+            elif abs(square.curr_normal[2]) == 1:
+                zdir = "z"
+                rect_pos = (block.pos[0], block.pos[1])
+                offset = block.pos[2]
+            p = Rectangle(rect_pos, 1,1, facecolor=square.color, edgecolor='black')
+            ax.add_patch(p)
+            if offset == 1:
+                offset+=1
+            art3d.pathpatch_2d_to_3d(p, z=offset, zdir=zdir)
+        
+    ax.set_xlim(-1, 2)
+    ax.set_ylim(-1, 2)
+    ax.set_zlim(-1, 2)
+
+    plt.show()
+    
