@@ -19,8 +19,10 @@ import mpl_toolkits.mplot3d.art3d as art3d
 from matplotlib.patches import Rectangle
 from abc import ABC, abstractmethod
 import matplotlib.pyplot as plt
+from copy import deepcopy
 import numpy as np
 import random
+    
 
 '''
 A Cube contains 28 Blocks (ignoring center)
@@ -68,14 +70,67 @@ class Strategy(ABC):
         pass
 
 
-class GeneticAlgorithmStrategy(Strategy):
+class GeneticAlgorithmStrategy(Strategy): 
+    def __init__(self, chromo_size = 22, pop_size = 100, generations = 250):
+        self.chromo_size = chromo_size
+        self.pop_size = pop_size
+        self.generations = generations
+        
+    def init_population(self):
+        faces = list(face_mapping.keys())
+        pop = [([(random.choice(faces), random.randint(0,1)) for _ in range(self.chromo_size)], 0) for _ in range(self.pop_size)]
+        return pop
+    
+    def fitness(self, indiv, cube):
+        cube2 = deepcopy(cube)
+        for op in indiv:
+            face_name, direction = op[0], op[1]
+            cube2.rotate_face(face_name, direction)
+        
+        return cube2.evaluate()
+        
     def do_algorithm(self, cube):
-        pass
+        population = self.init_population()
+        population = [(indiv[0], self.fitness(indiv[0], cube)) for indiv in population]
+        
+        for i in range(self.generations):
+            population = self.init_population()
+            population = [(indiv[0], self.fitness(indiv[0], cube)) for indiv in population]
+            
+            print(sorted([indiv[1] for indiv in population], reverse=True)[:3])
+            '''
+            # parents selection
+            mate_pool = sel_parents(populacao)
+            # Variation
+            # ------ Crossover
+            progenitores = []
+            for i in  range(0,size_pop-1,2):
+                indiv_1= mate_pool[i]
+                indiv_2 = mate_pool[i+1]
+                filhos = recombination(indiv_1,indiv_2, prob_cross)
+                progenitores.extend(filhos) 
+            # ------ Mutation
+            descendentes = []
+            for cromo,fit in progenitores:
+                novo_indiv = mutation(cromo,prob_mut, domain,sigma)
+                descendentes.append((novo_indiv,fitness_func(novo_indiv)))
+            # New population
+            populacao = sel_survivors(populacao,descendentes)
+            # Evaluate the new population
+            populacao = [(indiv[0], fitness_func(indiv[0])) for indiv in populacao]     
+            '''
+        return best_pop(populacao)
 
 
 class SimulatedAnnealingStrategy(Strategy):
+    def __init__(self, temp = 1000, teta = 0.05):
+        self.temp = temp
+        self.teta = teta
+    
     def do_algorithm(self, cube):
-        pass
+        while self.temp != 0:
+            cube2 = deepcopy(cube)
+            self.temp *= self.teta
         
         
         
@@ -255,4 +310,6 @@ if __name__ == '__main__':
     ax.set_zlim(-1, 2)
 
     plt.show()
+    
+    cube.solve()
     
