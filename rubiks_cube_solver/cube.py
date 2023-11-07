@@ -22,7 +22,9 @@ import matplotlib.pyplot as plt
 from copy import deepcopy
 import numpy as np
 import random
-    
+import time
+from operator import itemgetter
+
 
 '''
 A Cube contains 28 Blocks (ignoring center)
@@ -71,7 +73,7 @@ class Strategy(ABC):
 
 
 class GeneticAlgorithmStrategy(Strategy): 
-    def __init__(self, chromo_size = 22, pop_size = 100, generations = 250):
+    def __init__(self, chromo_size = 40, pop_size = 100, generations = 10):
         self.chromo_size = chromo_size
         self.pop_size = pop_size
         self.generations = generations
@@ -88,38 +90,117 @@ class GeneticAlgorithmStrategy(Strategy):
             cube2.rotate_face(face_name, direction)
         
         return cube2.evaluate()
+    
+    # swap mutation
+    def muta_cromo(self, cromo, prob_muta):
+        if prob_muta < random.random():
+            comp = len(cromo) - 1
+            copia = cromo[:]
+            i = random.randint(0, comp)
+            j = random.randint(0, comp)
+            while i == j:
+                i = random.randint(0, comp)
+                j = random.randint(0, comp)
+            copia[i], copia[j] = copia[j], copia[i]
+            return copia
+        else:
+            return cromo
+    
+    # crossover
+    def two_points_cross(self, indiv_1, indiv_2,prob_cross):
+        value = random.random()
+        if value < prob_cross:
+            cromo_1 = indiv_1[0]
+            cromo_2 = indiv_2[0]	    
+            pc= random.sample(range(len(cromo_1)),2)
+            pc.sort()
+            pc1,pc2 = pc
+            f1= cromo_1[:pc1] + cromo_2[pc1:pc2] + cromo_1[pc2:]
+            f2= cromo_2[:pc1] + cromo_1[pc1:pc2] + cromo_2[pc2:]
+            return ((f1,0),(f2,0))
+        else:
+            return (indiv_1,indiv_2)
+    
+    def uniform_cross(self, indiv_1, indiv_2,prob_cross):
+        value = random.random()
+        if value < prob_cross:
+            cromo_1 = indiv_1[0]
+            cromo_2 = indiv_2[0]
+            f1=[]
+            f2=[]
+            for i in range(0,len(cromo_1)):
+                if random.random() < 0.5:
+                    f1.append(cromo_1[i])
+                    f2.append(cromo_2[i])
+                else:
+                    f1.append(cromo_2[i])
+                    f2.append(cromo_1[i])
+            return ((f1,0),(f2,0))
+        else:
+            return (indiv_1,indiv_2) 
+            
+    # Tournament Selection
+    def tournament(self, pop):
+        size_pop = len(pop)
+        mate_pool = []
+        for i in range(size_pop):
+            winner = self.tour(pop,3)
+            mate_pool.append(winner)
+        return mate_pool    
         
+    def tour(self, population,size):
+        """Minimization Problem.Deterministic"""
+        pool = random.sample(population, size)
+        pool.sort(key=itemgetter(1))
+        return pool[0]  
+        
+    def elitism(self, parents,offspring):
+        """Minimization."""
+        size = len(parents)
+        comp_elite = int(size* 0.1)
+        offspring.sort(key=itemgetter(1))
+        parents.sort(key=itemgetter(1))
+        new_population = parents[:comp_elite] + offspring[:size - comp_elite]
+        return new_population
+    
     def do_algorithm(self, cube):
         population = self.init_population()
         population = [(indiv[0], self.fitness(indiv[0], cube)) for indiv in population]
+        size_pop = len(population)
         
         for i in range(self.generations):
-            population = self.init_population()
-            population = [(indiv[0], self.fitness(indiv[0], cube)) for indiv in population]
+            print(i)
+            # population = self.init_population()
+            # population = [(indiv[0], self.fitness(indiv[0], cube)) for indiv in population]
+            # print(sorted([indiv[1] for indiv in population], reverse=True)[:3])
             
-            print(sorted([indiv[1] for indiv in population], reverse=True)[:3])
-            '''
             # parents selection
-            mate_pool = sel_parents(populacao)
+            mate_pool = self.tournament(population)
             # Variation
             # ------ Crossover
-            progenitores = []
+            progenitors = []
             for i in  range(0,size_pop-1,2):
-                indiv_1= mate_pool[i]
+                indiv_1 = mate_pool[i]
                 indiv_2 = mate_pool[i+1]
-                filhos = recombination(indiv_1,indiv_2, prob_cross)
-                progenitores.extend(filhos) 
+                sons = self.two_points_cross(indiv_1,indiv_2, 0.8)
+                progenitors.extend(sons) 
             # ------ Mutation
-            descendentes = []
-            for cromo,fit in progenitores:
-                novo_indiv = mutation(cromo,prob_mut, domain,sigma)
-                descendentes.append((novo_indiv,fitness_func(novo_indiv)))
+            descendants = []
+            for cromo,fit in progenitors:
+                novo_indiv = self.muta_cromo(cromo,0.2)
+                descendants.append((novo_indiv, self.fitness(novo_indiv, cube)))
             # New population
-            populacao = sel_survivors(populacao,descendentes)
+            population = self.elitism(population,descendants)
             # Evaluate the new population
-            populacao = [(indiv[0], fitness_func(indiv[0])) for indiv in populacao]     
-            '''
-        return best_pop(populacao)
+            population = [(indiv[0], self.fitness(indiv[0], cube)) for indiv in population]     
+            print(self.best_pop(population))
+            
+        return self.best_pop(population)
+        
+    def best_pop(self, pop):
+        """Minimization."""
+        pop.sort(key=itemgetter(1))
+        return pop[0]
 
 
 class SimulatedAnnealingStrategy(Strategy):
@@ -200,10 +281,15 @@ class Cube:
     
     def shuffle(self, steps=50):
         faces = list(face_mapping.keys())
-        
+        moves= []
         for _ in range(steps):
             face_name = random.choice(faces)
-            self.rotate_face(face_name, random.randint(0,1)) # clockwise or counterclockwise
+            direction = random.randint(0,1)
+            moves.append((face_name, 0 if direction == 1 else 1))
+            self.rotate_face(face_name, direction) # clockwise or counterclockwise
+        
+        moves.reverse()
+        return (moves, 0)
         
     def solve(self):
         return self.solver.do_algorithm(self)
@@ -216,7 +302,7 @@ class Cube:
         for block in self.blocks:
             score += block.check()
         
-        return score
+        return 54 - score
         
         
         
@@ -279,10 +365,10 @@ if __name__ == '__main__':
     '''
     # ================ SHUFFLE + SOLVE ================
     
-    cube.shuffle()
+    sol = cube.shuffle(10)
     print(f"Score: {cube.evaluate()}")
     
-    
+    plt.ion()
     fig = plt.figure()  
     ax = fig.add_subplot(projection='3d')
     
@@ -309,7 +395,43 @@ if __name__ == '__main__':
     ax.set_ylim(-1, 2)
     ax.set_zlim(-1, 2)
 
-    plt.show()
+    #plt.show()
     
-    cube.solve()
+    #sol = cube.solve()
+    
+    
+    # Loop
+    for step in sol[0]:
+        
+        cube.rotate_face(step[0], step[1])
+        
+        for block in cube.blocks:
+            for square in block.squares:
+                zdir = "x"
+                offset = block.pos[0]
+                rect_pos = (block.pos[1], block.pos[2])
+                if abs(square.curr_normal[1]) == 1:
+                    zdir = "y"
+                    rect_pos = (block.pos[0], block.pos[2])
+                    offset = block.pos[1]
+                elif abs(square.curr_normal[2]) == 1:
+                    zdir = "z"
+                    rect_pos = (block.pos[0], block.pos[1])
+                    offset = block.pos[2]
+                p = Rectangle(rect_pos, 1,1, facecolor=square.color, edgecolor='black')
+                ax.add_patch(p)
+                if offset == 1:
+                    offset+=1
+                art3d.pathpatch_2d_to_3d(p, z=offset, zdir=zdir)
+                
+        # drawing updated values
+        fig.canvas.draw()
+     
+        # This will run the GUI event
+        # loop until all UI events
+        # currently waiting have been processed
+        fig.canvas.flush_events()
+     
+        time.sleep(1)
+    input()
     
