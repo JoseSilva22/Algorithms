@@ -1,35 +1,34 @@
+#https://scholar.google.com/scholar_url?url=https://www.academia.edu/download/82983308/IJEME-V8-N1-1.pdf&hl=en&sa=T&oi=gsb-gga&ct=res&cd=0&d=12834093376843814871&ei=-oZXZf6CI4v0mgHazZuwDA&scisig=AFWwaeYgNtJA8akNT4sMnor_CCkQ
 #https://carlosgrande.me/rubiks-cube-model/
 #https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.transform.Rotation.html
 #https://matplotlib.org/stable/api/_as_gen/matplotlib.patches.Rectangle.html
 
+
+from scipy.spatial.transform import Rotation as R
+import mpl_toolkits.mplot3d.art3d as art3d
+from matplotlib.patches import Rectangle
+import matplotlib.pyplot as plt
+import numpy as np
+import random
+import time
+
+from strategies.geneticAlgorithm import GeneticAlgorithmStrategy
+from strategies.simulatedAnnealing import SimulatedAnnealingStrategy
+
+
 '''
+A Cube contains 28 Blocks (ignoring center)
+A Block may contain up to 3 Squares
+A Face contains 9 Blocks that should make up to 21 Squares
+
        Z
        ^
        |
        |
        |-------> Y
       /
-    /
+     /
     X
-'''
-
-
-from scipy.spatial.transform import Rotation as R
-import mpl_toolkits.mplot3d.art3d as art3d
-from matplotlib.patches import Rectangle
-from abc import ABC, abstractmethod
-import matplotlib.pyplot as plt
-from copy import deepcopy
-import numpy as np
-import random
-import time
-from operator import itemgetter
-
-
-'''
-A Cube contains 28 Blocks (ignoring center)
-A Block may contain up to 3 Squares
-A Face contains 9 Blocks that should make up to 21 Sqaures
 '''
 
 colors_mapping = [
@@ -66,155 +65,8 @@ axis_rotations = {
 }
 
 
-class Strategy(ABC):
-    @abstractmethod
-    def do_algorithm(self, cube):
-        pass
 
-
-class GeneticAlgorithmStrategy(Strategy): 
-    def __init__(self, chromo_size = 40, pop_size = 100, generations = 10):
-        self.chromo_size = chromo_size
-        self.pop_size = pop_size
-        self.generations = generations
-        
-    def init_population(self):
-        faces = list(face_mapping.keys())
-        pop = [([(random.choice(faces), random.randint(0,1)) for _ in range(self.chromo_size)], 0) for _ in range(self.pop_size)]
-        return pop
-    
-    def fitness(self, indiv, cube):
-        cube2 = deepcopy(cube)
-        for op in indiv:
-            face_name, direction = op[0], op[1]
-            cube2.rotate_face(face_name, direction)
-        
-        return cube2.evaluate()
-    
-    # swap mutation
-    def muta_cromo(self, cromo, prob_muta):
-        if prob_muta < random.random():
-            comp = len(cromo) - 1
-            copia = cromo[:]
-            i = random.randint(0, comp)
-            j = random.randint(0, comp)
-            while i == j:
-                i = random.randint(0, comp)
-                j = random.randint(0, comp)
-            copia[i], copia[j] = copia[j], copia[i]
-            return copia
-        else:
-            return cromo
-    
-    # crossover
-    def two_points_cross(self, indiv_1, indiv_2,prob_cross):
-        value = random.random()
-        if value < prob_cross:
-            cromo_1 = indiv_1[0]
-            cromo_2 = indiv_2[0]	    
-            pc= random.sample(range(len(cromo_1)),2)
-            pc.sort()
-            pc1,pc2 = pc
-            f1= cromo_1[:pc1] + cromo_2[pc1:pc2] + cromo_1[pc2:]
-            f2= cromo_2[:pc1] + cromo_1[pc1:pc2] + cromo_2[pc2:]
-            return ((f1,0),(f2,0))
-        else:
-            return (indiv_1,indiv_2)
-    
-    def uniform_cross(self, indiv_1, indiv_2,prob_cross):
-        value = random.random()
-        if value < prob_cross:
-            cromo_1 = indiv_1[0]
-            cromo_2 = indiv_2[0]
-            f1=[]
-            f2=[]
-            for i in range(0,len(cromo_1)):
-                if random.random() < 0.5:
-                    f1.append(cromo_1[i])
-                    f2.append(cromo_2[i])
-                else:
-                    f1.append(cromo_2[i])
-                    f2.append(cromo_1[i])
-            return ((f1,0),(f2,0))
-        else:
-            return (indiv_1,indiv_2) 
-            
-    # Tournament Selection
-    def tournament(self, pop):
-        size_pop = len(pop)
-        mate_pool = []
-        for i in range(size_pop):
-            winner = self.tour(pop,3)
-            mate_pool.append(winner)
-        return mate_pool    
-        
-    def tour(self, population,size):
-        """Minimization Problem.Deterministic"""
-        pool = random.sample(population, size)
-        pool.sort(key=itemgetter(1))
-        return pool[0]  
-        
-    def elitism(self, parents,offspring):
-        """Minimization."""
-        size = len(parents)
-        comp_elite = int(size* 0.1)
-        offspring.sort(key=itemgetter(1))
-        parents.sort(key=itemgetter(1))
-        new_population = parents[:comp_elite] + offspring[:size - comp_elite]
-        return new_population
-    
-    def do_algorithm(self, cube):
-        population = self.init_population()
-        population = [(indiv[0], self.fitness(indiv[0], cube)) for indiv in population]
-        size_pop = len(population)
-        
-        for i in range(self.generations):
-            print(i)
-            # population = self.init_population()
-            # population = [(indiv[0], self.fitness(indiv[0], cube)) for indiv in population]
-            # print(sorted([indiv[1] for indiv in population], reverse=True)[:3])
-            
-            # parents selection
-            mate_pool = self.tournament(population)
-            # Variation
-            # ------ Crossover
-            progenitors = []
-            for i in  range(0,size_pop-1,2):
-                indiv_1 = mate_pool[i]
-                indiv_2 = mate_pool[i+1]
-                sons = self.two_points_cross(indiv_1,indiv_2, 0.8)
-                progenitors.extend(sons) 
-            # ------ Mutation
-            descendants = []
-            for cromo,fit in progenitors:
-                novo_indiv = self.muta_cromo(cromo,0.2)
-                descendants.append((novo_indiv, self.fitness(novo_indiv, cube)))
-            # New population
-            population = self.elitism(population,descendants)
-            # Evaluate the new population
-            population = [(indiv[0], self.fitness(indiv[0], cube)) for indiv in population]     
-            print(self.best_pop(population))
-            
-        return self.best_pop(population)
-        
-    def best_pop(self, pop):
-        """Minimization."""
-        pop.sort(key=itemgetter(1))
-        return pop[0]
-
-
-class SimulatedAnnealingStrategy(Strategy):
-    def __init__(self, temp = 1000, teta = 0.05):
-        self.temp = temp
-        self.teta = teta
-    
-    def do_algorithm(self, cube):
-        while self.temp != 0:
-            cube2 = deepcopy(cube)
-            self.temp *= self.teta
-        
-        
-        
+                
 class Square:
     def __init__(self, normal, color):
         self.orig_normal = normal
@@ -292,11 +144,11 @@ class Cube:
         return (moves, 0)
         
     def solve(self):
-        return self.solver.do_algorithm(self)
+        return self.solver.do_algorithm(self, face_mapping)
         
     def evaluate(self):
         # assumes that faces end at the initial positions
-        # does not account for cube rotations
+        # does not account for cube rotations... (yet!)
         score = 0
 
         for block in self.blocks:
@@ -307,13 +159,14 @@ class Cube:
         
         
 if __name__ == '__main__':
-    ga = GeneticAlgorithmStrategy()
-    sa = SimulatedAnnealingStrategy()
+    ga = GeneticAlgorithmStrategy(generations = 10) # <-- small num of gen just to test, should be much higher
+    #sa = SimulatedAnnealingStrategy()
+    
     cube = Cube(ga)
     
     # ================== PREPARE CUBE =================
     
-    count = 0
+    color_ix = 0
     for i in range(-1,2):
         for j in range(-1,2):
             for k in range(-1,2):
@@ -323,21 +176,21 @@ if __name__ == '__main__':
                 
                 zeros = (i,j,k).count(0)
                 
-                # cube center
+                # center cube -> ignore
                 if zeros == 3:
                     continue
                 
                 block = Block([i,j,k])
                 
                 if i != 0:
-                    block.add_square(Square([i, 0, 0], colors_mapping[count])) 
-                    count += 1
+                    block.add_square(Square([i, 0, 0], colors_mapping[color_ix])) 
+                    color_ix += 1
                 if j != 0:
-                    block.add_square(Square([0, j, 0], colors_mapping[count])) 
-                    count += 1
+                    block.add_square(Square([0, j, 0], colors_mapping[color_ix])) 
+                    color_ix += 1
                 if k != 0:
-                    block.add_square(Square([0, 0, k], colors_mapping[count])) 
-                    count += 1
+                    block.add_square(Square([0, 0, k], colors_mapping[color_ix])) 
+                    color_ix += 1
 
                 cube.add_block(block)
                 
@@ -352,10 +205,10 @@ if __name__ == '__main__':
             print(square)
     
     face_name = "X_PLANE"
-    le_face = cube.get_face(face_name)
+    _face = cube.get_face(face_name)
     
-    print(f"\n# blocks in face {face_name}: {len(le_face)}")
-    for block in le_face:
+    print(f"\n# blocks in face {face_name}: {len(_face)}")
+    for block in _face:
         print(f"Block pos: {block.pos}")
         for square in block.squares:
             print(square)
@@ -363,10 +216,12 @@ if __name__ == '__main__':
     print("Score for solved Cube should be 54")
     print(f"Score: {cube.evaluate()}")
     '''
-    # ================ SHUFFLE + SOLVE ================
+    # ==================== SHUFFLE ====================
     
     sol = cube.shuffle(10)
-    print(f"Score: {cube.evaluate()}")
+    print(f"Cube shuffled! \nCurrent score: {cube.evaluate()} \n0 is the optimal solution\n")
+    
+    # =================== DRAW CUBE ===================
     
     plt.ion()
     fig = plt.figure()  
@@ -397,10 +252,12 @@ if __name__ == '__main__':
 
     #plt.show()
     
-    #sol = cube.solve()
+    # ===================== SOLVE =====================
     
+    sol = cube.solve()
     
-    # Loop
+    # ================ ANIMATE SOLUTION ===============
+    
     for step in sol[0]:
         
         cube.rotate_face(step[0], step[1])
@@ -433,5 +290,6 @@ if __name__ == '__main__':
         fig.canvas.flush_events()
      
         time.sleep(1)
+        
     input()
     
